@@ -31,6 +31,14 @@ library(dplyr)
 library(alakazam)
 library(shazam)
 library(stringr)
+
+library(data.table)
+library(igraph)
+library(gplots)
+library(circlize)
+library(UpSetR)
+library(gtools)
+
 theme_set(theme_bw(base_family = "ArialMT") +
             theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), text = element_text(family="ArialMT")))
 knitr::opts_chunk$set(echo = FALSE)
@@ -140,6 +148,22 @@ ggsave(plot=p_ca, filename = paste0(abundance_dir,"/Clonal_abundance_subject.png
 write.table(abund@abundance, file = paste0(abundance_dir, "/Clonal_abundance_data_subject.tsv"), sep="\t", quote = F, row.names = F)
 ```
 
+### Calculate area under the curve for abundance
+
+```{r auc}
+
+```
+
+## Count clones per subject
+
+```{r count_clones}
+df_countclones_copy <- countClones(df_all,groups="sample",copy = "duplicate_count")
+df_countclones_copy$treatment <- sapply(df_countclones_copy$sample, function(x) unlist(strsplit(as.character(x), "_"))[1])
+df_countclones_copy$time_point <- sapply(df_countclones_copy$sample, function(x) unlist(strsplit(as.character(x), "_"))[2])
+df_countclones_copy$patient <- sapply(df_countclones_copy$sample, function(x) unlist(strsplit(as.character(x), "_"))[3])
+write.table(df_countclones_copy, file = paste0(abundance_dir, "/Clonal_numbers_data_subject.tsv"), sep = "\t", quote = F, row.names = F)
+```
+
 ## Clonal abundance per cell population
 
 If different types of B-cell or T-cell populations are provided, here
@@ -245,46 +269,51 @@ ggsave(plot=div_p, filename=paste0(diversity_dir,"/Diversity_patient_grid.pdf"),
 
 #### q=1 {-}
 
-```{r clonal_diversity_q1, fig.height=3, fig.width=12, echo = FALSE}
+```{r clonal_diversity_q1, fig.height=4, fig.width=5, echo = FALSE}
+sample_div@diversity$time_point <- factor(sample_div@diversity$time_point, levels=c("baseline","6months","12months"))
 sample_div_q1 <- sample_div@diversity[which(sample_div@diversity$q == 1),]
 sample_main <- paste0("Sample diversity at q=1 (N=", sample_div@n[1], ")")
 dodge <- position_dodge(width = 0.9)
 dq1 <- ggplot(sample_div_q1, aes(y=d, x=time_point)) +
-    geom_point(position=dodge, stat="identity", size = 3) +
-    geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
+    geom_point(aes(color=patient,group=time_point),position=dodge, stat="identity", size = 3) +
+    #geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .05, position=dodge) +
+    geom_line(aes(group=patient,color=patient)) +
     xlab("") + ylab("Diversity (q=1)") +
     ggtitle(sample_main) +
-    facet_grid(cols=vars(patient), drop=T, space="free", scales = "free") +
+    scale_colour_brewer(palette = "Accent")+
+    #facet_grid(cols=vars(patient), drop=T, space="free", scales = "free") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dq1
 ```
 ```{r, include = FALSE}
-ggsave(plot = dq1, filename = paste0(diversity_dir,"/Diversity_q1_test_subject.png"), device="png",
-        width = 25, height = 6, units="cm")
-ggsave(plot = dq1, filename = paste0(diversity_dir,"/Diversity_q1_test_subject.pdf"), device="pdf",
-        width = 25, height = 6, units="cm")
+ggsave(plot = dq1, filename = paste0(diversity_dir,"/Diversity_q1_test_subject_paired.png"), device="png",
+        width = 5, height = 4, units="cm")
+ggsave(plot = dq1, filename = paste0(diversity_dir,"/Diversity_q1_test_subject_paired.pdf"), device="pdf",
+        width = 5, height = 4, units="cm")
 ```
 
 #### q=0 {-}
 
-```{r clonal_diversity_q0, fig.height=3, fig.width=12, echo = FALSE}
+```{r clonal_diversity_q0, fig.height=4, fig.width=5, echo = FALSE}
 sample_div_q0 <- sample_div@diversity[which(sample_div@diversity$q == 0),]
 sample_main <- paste0("Sample diversity at q=0 (N=", sample_div@n[1], ")")
 dodge <- position_dodge(width = 0.9)
 dq0 <- ggplot(sample_div_q0, aes(y=d, x=time_point)) +
-    geom_point(position=dodge, stat="identity", size = 3) +
-    geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
+    geom_point(aes(color=patient,group=time_point),position=dodge, stat="identity", size = 3) +
+    #geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .05, position=dodge) +
+    geom_line(aes(group=patient,color=patient)) +
     xlab("") + ylab("Diversity (q=0)") +
     ggtitle(sample_main) +
-    facet_grid(cols=vars(patient), drop=T, scales = "free") +
+    scale_colour_brewer(palette = "Accent")+
+    #facet_grid(cols=vars(patient), drop=T, space="free", scales = "free") +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 dq0
 ```
 
 ```{r, include = FALSE}
-ggsave(plot = dq0, filename = paste0(diversity_dir,"/Diversity_q0_test_subject.png"), device="png",
+ggsave(plot = dq0, filename = paste0(diversity_dir,"/Diversity_q0_test_subject_paired.png"), device="png",
         width = 25, height = 6, units="cm")
-ggsave(plot = dq0, filename = paste0(diversity_dir,"/Diversity_q0_test_subject.pdf"), device="pdf",
+ggsave(plot = dq0, filename = paste0(diversity_dir,"/Diversity_q0_test_subject_paired.pdf"), device="pdf",
         width = 25, height = 6, units="cm")
 ```
 
@@ -394,21 +423,21 @@ write.table(family, file = paste0(vfamily_dir, "/V_family_distribution_data.tsv"
 
 ### By Population {-}
 
-```{r, echo=F, fig.width=10, fig.asp=0.8, fig.align='center'}
+```{r, echo=F, fig.width=10, fig.asp=0.5, fig.align='center'}
 family <- countGenes(df_all, gene="v_call", groups="sample_pop",
                     mode="family", clone = "clone_id")
 family$treatment <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
 family$time_point <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
 family$patient <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[3])
 family$population <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[4])
-g2 <- ggplot(family, aes(x=gene, y=clone_freq, fill=gene)) +
+g2 <- ggplot(family, aes(x=time_point, y=clone_freq, fill=gene)) +
     scale_color_brewer(palette="Set1") +
     geom_bar(position = "dodge", stat="identity") +
     ggtitle("V gene Family Usage") +
     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
     ylab("Frequency") +
     xlab("") +
-    facet_grid(cols=vars(patient), rows=vars(population)) +
+    facet_grid(cols=vars(patient,population), rows=vars(gene)) +
     theme(legend.position = "none")
 g2
 ggsave(filename = paste0(vfamily_dir,"/V_Family_distribution_patient_population.svg"), plot = g2,
@@ -485,15 +514,15 @@ freqs$Freq <- (freqs$Seqs_isotype/freqs$Seqs_total)
 
 g4 <- ggplot(freqs, aes(fill=extract_time, y=Freq, x=isotype)) +
   geom_bar(position = "dodge", stat="identity") +
-  xlab("") + 
+  xlab("") +
   ylab("Frequency") +
   ggtitle("Isotype frequency") +
   facet_grid(cols=vars(source), scales = "free", drop = T) +
   theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
 g4
-ggsave(plot=g4, filename = paste0(isotype_dir,"/Isotype_frequencies_patient.svg"), device = "svg", 
+ggsave(plot=g4, filename = paste0(isotype_dir,"/Isotype_frequencies_patient.svg"), device = "svg",
   width = 25, height = 7, units = "cm")
-ggsave(plot=g4, filename = paste0(isotype_dir,"/Isotype_frequencies_patient.pdf"), device = "pdf", 
+ggsave(plot=g4, filename = paste0(isotype_dir,"/Isotype_frequencies_patient.pdf"), device = "pdf",
   width = 25, height = 7, units = "cm")
 write.table(freqs, file = paste0(isotype_dir,"/Isotype_frequencies_data.tsv"), sep="\t", quote=F, row.names = F)
 
@@ -511,19 +540,278 @@ freqs$Freq <- (freqs$Seqs_isotype/freqs$Seqs_total)
 
 g4 <- ggplot(freqs, aes(fill=extract_time, y=Freq, x=isotype)) +
  geom_bar(position = "dodge", stat="identity") +
- xlab("") + 
+ xlab("") +
  ylab("Frequency") +
  ggtitle("Isotype frequency") +
  facet_grid(cols=vars(source), rows=vars(population)) +
  theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
 g4
-ggsave(g4, filename = paste0(isotype_dir,"/Isotype_percentages_cell_population.svg"), device = "svg", 
+ggsave(g4, filename = paste0(isotype_dir,"/Isotype_percentages_cell_population.svg"), device = "svg",
   width = 25, height = 20, units = "cm")
-ggsave(g4, filename = paste0(isotype_dir,"/Isotype_percentages_cell_population.pdf"), device = "pdf", 
+ggsave(g4, filename = paste0(isotype_dir,"/Isotype_percentages_cell_population.pdf"), device = "pdf",
   width = 25, height = 20, units = "cm")
 
 write.table(freqs, file = paste0(isotype_dir, "/Isotype_frequencies_cell_population_data.tsv"), sep="\t", quote = F, row.names = F)
 ```
+
+# Clonal overlap analysis
+
+```{r clonal_overlap, echo=F, fig.align='center'}
+# # Splitting data in a per patient basis
+df_subset <- df_all[,c("treatment", "extract_time", "source", "population", 
+                      "clone_id", 
+                      "v_call", "d_call", "j_call", "junction_length", 
+                       "sample", "sample_pop")]
+df_pat <- split(df_subset, df_subset$source)
+df_pat$CLAD4<-NULL
+dir.create(paste(outdir,"Clone_overlap", sep = "/"))
+
+#for (i in c(1:length(df_pat))) {
+    patdir_overlap <- paste(outdir,"Clone_overlap",names(df_pat)[i], sep="/")
+    dir.create(patdir_overlap)
+
+    
+    ## Plot chordplot comparison time points per patient
+    df_pat[[i]]$time_pop <- as.factor(paste(df_pat[[i]]$extract_time, df_pat[[i]]$population, sep="_"))
+    df_pop_time <- split(df_pat[[i]], df_pat[[i]]$time_pop)
+  
+    count_clones <- countClones(df_pat[[i]])
+  
+    ## Calculating overlaps between time points
+    combin <- expand.grid(unique(df_pat[[i]]$extract_time), unique(df_pat[[i]]$population))
+    combin$names <- apply(combin[,c("Var1", "Var2")], 1, paste, collapse = "_")
+  
+    baselines <- subset(combin, combin$Var1 == "baseline")
+    other <- subset(combin, combin$Var1 != "baseline")
+    clonedf <- expand.grid(baselines$names, other$names)
+    colnames(clonedf) <- c("from","to")
+    seqdf <- clonedf
+  
+    lenintersects = numeric(0)
+    seqsintersects = numeric(0)
+    for (j in c(1:nrow(clonedf))){
+        inter <- intersect(df_pop_time[[which(grepl(clonedf[j,1], names(df_pop_time)))]]$clone_id,
+                           df_pop_time[[which(grepl(clonedf[j,2], names(df_pop_time)))]]$clone_id)
+    
+        clones_subset <- count_clones[which(count_clones$clone_id %in% as.character(inter)),]
+    
+        lenintersects <- c(lenintersects, length(inter))
+        seqsintersects <- c(seqsintersects, sum(clones_subset$seq_count))
+    }
+  
+    clonedf$value <- lenintersects
+    seqdf$value <- seqsintersects
+  
+    # Saving both tables
+    write.table(clonedf, file = paste(patdir_overlap,"/Clone_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
+    write.table(seqdf, file = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
+  
+    #grid.col = c("#a6cee3", "#b2df8a", "#fb9a99", "#fdbf6f", "#1f78b4", "#33a02c", "#e31a1c", "#ff7f00")
+    #names(grid.col) <- clonedf$from
+
+  
+    # Clone overlap plot
+    svg(filename = paste(patdir_overlap,"/Clone_overlap_comparison_time_points_",
+                         df_pop_time[[1]]$treatment[1], "_", 
+                         df_pop_time[[1]]$source[1], ".svg", sep=""))
+        chordDiagram(clonedf, 
+                 grid.col = grid.col, 
+                 self.link = 1,
+                 transparency = 0.3,
+                 annotationTrack="grid",
+                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
+        circos.track(track.index = 1, 
+                 panel.fun = function(x, y) {
+                              circos.text(CELL_META$xcenter, 
+                                          CELL_META$ylim[2], 
+                                          CELL_META$sector.index,
+                                          adj = c(0, 0.5))
+                              }, bg.border = NA)
+        title(paste("clone overlap", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
+        circos.clear()
+    dev.off()
+  
+    png(filename = paste(patdir_overlap, "/Clone_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".png", sep=""), width=15, height=15, units = "cm", res = 300)
+    chordDiagram(clonedf, 
+                 #grid.col = grid.col, 
+                 self.link = 1,
+                 transparency = 0.3,
+                 annotationTrack="grid",
+                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
+    circos.track(track.index = 1, panel.fun = function(x, y) {
+      circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
+                  adj = c(0, 0.5))
+    }, bg.border = NA)
+    title(paste("clone_id OVERLAP", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
+    circos.clear()
+    dev.off()
+  
+    # Sequences overlap plot
+    svg(filename = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".svg", sep=""))
+    chordDiagram(seqdf, 
+                 #grid.col = grid.col, 
+                 self.link = 1,
+                 transparency = 0.3,
+                 annotationTrack="grid",
+                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
+    circos.track(track.index = 1, panel.fun = function(x, y) {
+      circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
+                  adj = c(0, 0.5))
+    }, bg.border = NA)
+    title(paste("CLONE SEQ NUM OVERLAP", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
+    circos.clear()
+    dev.off()
+  
+    png(filename = paste(patdir_overlap, "/Clone_seqN_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".png", sep=""), width=15, height=15, units = "cm", res = 300)
+    chordDiagram(seqdf, 
+                 #grid.col = grid.col, 
+                 self.link = 1,
+                 transparency = 0.3,
+                 annotationTrack="grid",
+                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
+    circos.track(track.index = 1, panel.fun = function(x, y) {
+      circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
+                  adj = c(0, 0.5))
+    }, bg.border = NA)
+    title(paste("CLONE SEQ NUM OVERLAP", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
+    circos.clear()
+    dev.off()
+  
+    # 
+    # 
+    df_TP <- split(df_pat[[i]], df_pat[[i]]$extract_time)
+  
+  # Plots per patient and time point - overlap populations
+    for (n in c(1:length(df_TP))) {
+      df_pop <- split(df_TP[[n]], df_TP[[n]]$population)
+      vennplot <- venn(list(unique(df_pop[[1]]$clone_id), unique(df_pop[[2]]$clone_id), unique(df_pop[[3]]$clone_id), unique(df_pop[[4]]$clone_id)), names = names(df_pop))
+      
+      listInput <- list(df_pop[[1]]$clone_id, df_pop[[2]]$clone_id, df_pop[[3]]$clone_id, df_pop[[4]]$clone_id)
+      names(listInput) <- names(df_pop)
+      combin <- data.frame(from=combinations(4,2,names(df_pop),repeats.allowed=F)[,1], to=combinations(4,2,names(df_pop),repeats.allowed=F)[,2])
+      
+      #listInput <- list(df_pop[[1]]$clone_id, df_pop[[2]]$clone_id, df_pop[[3]]$clone_id, df_pop[[4]]$clone_id)
+      #names(listInput) <- names(df_pop)
+      
+      # Upset plots
+      svg(filename = paste(patdir_overlap,"/Set_plot_", df_pop[[1]]$treatment[1], "_",df_pop[[1]]$extract_time[1], "_",df_pop[[1]]$source[1], ".svg", sep=""))
+      upset(fromList(listInput), group.by = "sets", order.by="freq", point.size = 3.5, line.size=2, mainbar.y.label = "Clone intersections", sets.x.label = "Clones per population")
+      dev.off()
+      
+      png(filename = paste(patdir_overlap,"/Set_plot_", df_pop[[1]]$treatment[1], "_",df_pop[[1]]$extract_time[1], "_",df_pop[[1]]$source[1], ".png", sep=""), res = 600, width = 15, height=10, units = "cm")
+      upset(fromList(listInput), order.by="freq", group.by = "sets", point.size = 3.5, line.size=2, mainbar.y.label = "Clone intersections", sets.x.label = "Clones per population")
+      dev.off()
+      
+      clonedf <- combin
+      seqdf <- combin
+      
+      lenintersects = numeric(0)
+      seqsintersects = numeric(0)
+      for (j in c(1:nrow(clonedf))){
+        inter <- intersect(df_pop[[which(grepl(paste0("^",clonedf[j,1]), names(df_pop)))]]$clone_id, 
+                           df_pop[[which(grepl(paste0("^",clonedf[j,2]), names(df_pop)))]]$clone_id)
+        
+        clones_subset <- count_clones[which(count_clones$clone_id %in% as.character(inter)),]
+        
+        lenintersects <- c(lenintersects, length(inter))
+        seqsintersects <- c(seqsintersects, sum(clones_subset$seq_count))
+      }
+      
+      clonedf$value <- lenintersects
+      seqdf$value <- seqsintersects
+      
+      
+      self_comb <- data.frame(from = names(df_pop), to = names(df_pop))
+      self_clonedf <- self_comb
+      self_seqdf<- self_comb
+      
+      lenintersects <- numeric(0)
+      seqsintersects <- numeric(0)
+      for (pop in self_comb$from){
+        inter <- attributes(vennplot)[["intersections"]][[pop]]
+        clones_subset <- count_clones[which(count_clones$clone_id %in% as.character(inter)),]
+        
+        lenintersects <- c(lenintersects, length(inter))
+        seqsintersects <- c(seqsintersects, sum(clones_subset$seq_count))
+      }
+      self_clonedf$value <- lenintersects
+      self_seqdf$value <- seqsintersects
+      
+      clonedf <- rbind(clonedf, self_clonedf)
+      seqdf <- rbind(seqdf, self_seqdf)
+      
+      write.table(clonedf, file = paste(patdir_overlap,"/Clone_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
+      write.table(seqdf, file = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
+      
+      grid.col = c("#225ea8","#41b6c4","#a1dab4","#ffffcc")
+      
+      
+      # Plots clone overlap
+      svg(filename = paste(patdir_overlap,"/Clone_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".svg", sep=""))
+      chordDiagram(clonedf, 
+                   #grid.col = grid.col, 
+                   self.link = 1,
+                   transparency = 0.3,
+                   annotationTrack="grid",
+                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
+      circos.track(track.index = 1, panel.fun = function(x, y) {
+                    circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
+                    adj = c(0, 0.5))
+                    }, bg.border = NA)
+      title(paste("clone_id OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
+      circos.clear()
+      dev.off()
+      
+      png(filename = paste(patdir_overlap,"/Clone_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".png", sep=""), res = 600, width = 15, height=10, units = "cm")
+      chordDiagram(clonedf, 
+                   #grid.col = grid.col, 
+                   self.link = 1,
+                   transparency = 0.3,
+                   annotationTrack="grid",
+                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
+      circos.track(track.index = 1, panel.fun = function(x, y) {
+        circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
+                    adj = c(0, 0.5))
+      }, bg.border = NA)
+      title(paste("clone_id OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
+      circos.clear()
+      dev.off()
+    
+      # Plots clone sequence numbers overlap
+      svg(filename = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".svg", sep=""))
+      chordDiagram(seqdf, 
+                   #grid.col = grid.col, 
+                   self.link = 1,
+                   transparency = 0.3,
+                   annotationTrack="grid",
+                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
+      circos.track(track.index = 1, panel.fun = function(x, y) {
+        circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
+                    adj = c(0, 0.5))
+      }, bg.border = NA)
+      title(paste("CLONE SEQ NUM OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
+      circos.clear()
+      dev.off()
+      
+      png(filename = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".png", sep=""), res = 600, width = 15, height=10, units = "cm")
+      chordDiagram(seqdf, 
+                   #grid.col = grid.col, 
+                   self.link = 1,
+                   transparency = 0.3,
+                   annotationTrack="grid",
+                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
+      circos.track(track.index = 1, panel.fun = function(x, y) {
+        circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
+                    adj = c(0, 0.5))
+      }, bg.border = NA)
+      title(paste("CLONE SEQ NUM OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
+      circos.clear()
+      dev.off()
+    }
+#}
+
+```
+
 
 # Citations
 
