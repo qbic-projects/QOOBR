@@ -61,6 +61,50 @@ kable(tab_seqs) %>%
     scroll_box(width = "100%", height = "400px")
 ```
 
+Plotting number of unique sequences
+
+```{r seq_numbers_plot, fig.width=4, fig.asp=0.3, echo=FALSE}
+tab_seqs$Extraction_time <- factor(tab_seqs$Extraction_time, levels=c("baseline","6months","12months"))
+g4 <- ggplot(tab_seqs, aes(fill=Extraction_time, y=Unique, x=Population)) +
+  geom_bar(position = "dodge", stat="identity") +
+  xlab("") +
+  ylab("Sequence number") +
+  ggtitle("Unique sequence numbers per sample") +
+  facet_grid(cols=vars(Source), scales = "free", drop = T) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+g4
+```
+
+
+Plotting number of representative 2 sequences
+
+```{r seq_numbers_plot, fig.width=4, fig.asp=0.3, echo=FALSE}
+g4 <- ggplot(tab_seqs, aes(fill=Extraction_time, y=Representative_2, x=Population)) +
+  geom_bar(position = "dodge", stat="identity") +
+  xlab("") +
+  ylab("Sequence number") +
+  ggtitle("Representative2 sequence numbers per sample") +
+  facet_grid(cols=vars(Source), scales = "free", drop = T) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+g4
+```
+
+
+Plotting number of Igblast identified sequences
+
+
+```{r seq_numbers_plot, fig.width=4, fig.asp=0.3, echo=FALSE}
+g4 <- ggplot(tab_seqs, aes(fill=Extraction_time, y=Igblast, x=Population)) +
+  geom_bar(position = "dodge", stat="identity") +
+  xlab("") +
+  ylab("Sequence number") +
+  ggtitle("Igblast identified sequence number per sample") +
+  facet_grid(cols=vars(Source), scales = "free", drop = T) +
+  theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+g4
+```
+
+
 
 ```{r read_data, include=FALSE}
 # Reading data tables and ceating output folders
@@ -401,24 +445,51 @@ Gene family usage is normalized by the number of clones.
 
 ### By patient {-}
 
-```{r, echo=F, fig.width=10, fig.asp=0.3, fig.align='center'}
+```{r, echo=F,fig.width=6, fig.asp=1, fig.align='center'}
 family <- countGenes(df_all, gene="v_call", groups="sample", mode="family", clone="clone_id")
 family$treatment <- sapply(family$sample, function(x) unlist(strsplit(as.character(x), "_"))[1])
 family$time_point <- sapply(family$sample, function(x) unlist(strsplit(as.character(x), "_"))[2])
+family$time_point <- factor(family$time_point, levels=c("baseline","6months","12months"))
 family$patient <- sapply(family$sample, function(x) unlist(strsplit(as.character(x), "_"))[3])
-g2 <- ggplot(family, aes(x=gene, y=clone_freq, fill=gene)) +
-    scale_color_brewer(palette="Set1") +
+
+gg1 <- ggplot(family, aes(fill=gene, y=clone_freq, x=time_point)) + 
+        geom_bar(position="fill", stat="identity") +
+        facet_grid(cols = vars(patient), drop=T, scales = "free" ) +
+            theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+
+g2 <- ggplot(family, aes(x=time_point, y=clone_freq, fill=time_point)) +
     geom_bar(position = "dodge", stat="identity") +
     ggtitle("V Gene Family Usage") +
     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
     ylab("Frequency") +
     xlab("") +
-    facet_grid(cols = vars(patient), drop=T, scales = "free" ) +
-    theme(legend.position = "none")
+    facet_grid(cols = vars(patient), rows=vars(gene),drop=T, scales = "free" ) +
+    theme(legend.position = "none") +
+    scale_fill_brewer(palette="Blues")
+gg1
 g2
+```
+
+```{r, echo=F}
 ggsave(filename = paste0(vfamily_dir, "/V_Family_distribution_patient.svg"), plot = g2, width = 25, height = 6, units = "cm")
 ggsave(filename = paste0(vfamily_dir, "/V_Family_distribution_patient.png"), plot = g2, width = 25, height = 6, units = "cm")
 write.table(family, file = paste0(vfamily_dir, "/V_family_distribution_data.tsv"), sep = "\t", quote = F, row.names = F)
+```
+
+```{r, echo=F,fig.width=3, fig.asp=1.5, fig.align='center'}
+dodge <- position_dodge(width = 0.9)
+g3 <- ggplot(family, aes(x=time_point, y=clone_freq)) +
+    geom_point(aes(color=patient, group=time_point),position =dodge, stat="identity", size=3) +
+    geom_line(aes(group=patient,color=patient)) +
+    ggtitle("V Gene Family Usage") +
+    theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
+    ylab("Frequency") +
+    xlab("") +
+    facet_grid(rows=vars(gene),drop=T, scales = "free" ) +
+    #theme(legend.position = "none") +
+    scale_colour_brewer(palette="Accent")
+g3
 ```
 
 ### By Population {-}
