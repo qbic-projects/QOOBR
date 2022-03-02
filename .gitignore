@@ -1,3 +1,5 @@
 repertoire_comparison
+repertoire_comparison_tp
 *.zip
 .Rhistory
+.RDataTmp

@@ -1,18 +1,21 @@
 ---
+bibliography: ./references.bibtex
 output:
-  html_document:
-    toc: true                               # table of contents
-    toc_float: true                         # float the table of contents to the left of the main document content
-    toc_depth: 3                            # header levels 1,2,3
-    theme: default
-    number_sections: false                  # add section numbering to headers
-    df_print: paged                         # tables are printed as an html table with support for pagination over rows and columns
-    css: ./nf-core_style.css
-    highlight: pygments
-    pdf_document: true
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
   html_notebook:
     toc: yes
-bibliography: ./references.bibtex
+  html_document:
+    css: ./nf-core_style.css
+    df_print: paged
+    highlight: pygments
+    number_sections: no
+    pdf_document: yes
+    theme: default
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
 ---
 
 
@@ -54,8 +57,7 @@ knitr::opts_chunk$set(echo = FALSE)
 Number of reads for each of the samples and number of sequences left after representative analysis steps.
 
 ```{r seq_numbers, echo=FALSE, results='asis'}
-#TODO read Table sequences
-tab_seqs <- read.table("../parsed_logs/sequences_table/Table_sequences_process.tsv", header=TRUE, sep="\t", check.names = FALSE)
+tab_seqs <- read.table("../../pipeline_results_per_patient/parsed_logs/sequences_table/Table_sequences_process.tsv", header=TRUE, sep="\t", check.names = FALSE)
 kable(tab_seqs) %>%
     kable_styling("hover") %>%
     scroll_box(width = "100%", height = "400px")
@@ -107,8 +109,8 @@ g4
 
 
 ```{r read_data, include=FALSE}
-# Reading data tables and ceating output folders
-datadir <- "."
+# Reading data tables and creating output folders
+#datadir <- "."
 outdir <- "repertoire_comparison"
 # setwd to results folder (containing alakazam, shazam, etc. folders)
 ### Read all the tables as produced by the pipeline in the current folder and joins them together in the df_all dataframe
@@ -131,7 +133,20 @@ dir.create(isotype_dir)
 #    df_all <- rbind(df_all, df_pat)
 #}
 #write.table(df_all, paste0(outdir,"/all_data.tsv"), sep = "\t", quote=F, row.names = F, col.names = T)
-df_all <- read.csv("../repertoire_analysis/repertoire_comparison/all_data.tsv", sep="\t")
+df_all <- read.csv("../../pipeline_results_per_patient/repertoire_analysis/repertoire_comparison/all_data.tsv", sep="\t")
+
+# Fix swap of samples
+df_clad4 <- df_all[which(df_all$source == "CLAD4"),]
+
+df_all <- df_all[!(df_all$source == "CLAD4"),]
+
+df_clad4$correct_extract_time <- sapply(df_clad4$extract_time, function(x) str_replace(as.character(x), "6months", "fix"))
+df_clad4$correct_extract_time <- sapply(df_clad4$correct_extract_time, function(x) str_replace(as.character(x), "baseline", "6months"))
+df_clad4$correct_extract_time <- sapply(df_clad4$correct_extract_time, function(x) str_replace(as.character(x), "fix", "baseline"))
+df_clad4$extract_time <- df_clad4$correct_extract_time
+df_clad4$correct_extract_time <- NULL
+
+df_all <- rbind(df_all, df_clad4)
 
 # Remove underscores in these columns
 df_all$treatment <- sapply(df_all$treatment, function(x) str_replace(as.character(x), "_", ""))
@@ -141,11 +156,14 @@ df_all$population <- sapply(df_all$population, function(x) str_replace(as.charac
 # Annotate sample and samplepop (sample + population) by add ing all the conditions
 df_all$sample <- as.factor(paste(df_all$treatment, df_all$extract_time, df_all$source, sep="_"))
 df_all$sample_pop <- as.factor(paste(df_all$treatment, df_all$extract_time, df_all$source, df_all$population, sep="_"))
+
 # Set number of bootrstraps
 nboot = 200
 
+
+
 # Removing Cladribin_6months_CLAD4_N because of too little sequences
-df_all <- df_all[!(df_all$sample_pop=="Cladribin_6months_CLAD4_N"),]
+df_all <- df_all[!(df_all$sample_pop=="Cladribin_baseline_CLAD4_N"),]
 
 ```
 
@@ -244,6 +262,18 @@ ggsave(plot=pop_ca, filename = paste0(abundance_dir,"/Clonal_abundance_patient_p
         width = 30, height = 20, units="cm")
 write.table(abund_pop@abundance, file = paste0(abundance_dir, "/Clonal_abundance_data_cell_population.tsv"), sep="\t", quote = F, row.names = F)
 
+```
+
+## Count clones per population
+
+```{r count_clones_pop}
+df_countclones_copy <- countClones(df_all,groups="sample_pop",copy = "duplicate_count")
+df_countclones_copy$treatment <- sapply(df_countclones_copy$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
+df_countclones_copy$time_point <- sapply(df_countclones_copy$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
+df_countclones_copy$patient <- sapply(df_countclones_copy$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[3])
+df_countclones_copy$population <- sapply(df_countclones_copy$sample_pop, function(x)
+unlist(strsplit(as.character(x), "_"))[4])
+write.table(df_countclones_copy, file = paste0(abundance_dir, "/Clonal_numbers_data_subject_population.tsv"), sep = "\t", quote = F, row.names = F)
 ```
 
 # Clonal diversity
@@ -629,262 +659,9 @@ write.table(freqs, file = paste0(isotype_dir, "/Isotype_frequencies_cell_populat
 
 # Clonal overlap analysis
 
-```{r clonal_overlap, echo=F, fig.align='center'}
-# # Splitting data in a per patient basis
-df_subset <- df_all[,c("treatment", "extract_time", "source", "population", 
-                      "clone_id", 
-                      "v_call", "d_call", "j_call", "junction_length", 
-                       "sample", "sample_pop")]
-df_pat <- split(df_subset, df_subset$source)
-df_pat$CLAD4<-NULL
-dir.create(paste(outdir,"Clone_overlap", sep = "/"))
+The clonal overlap plots can be found [here](./repertoire_comparison/Clone_overlap/).
 
-#for (i in c(1:length(df_pat))) {
-    patdir_overlap <- paste(outdir,"Clone_overlap",names(df_pat)[i], sep="/")
-    dir.create(patdir_overlap)
-
-    
-    ## Plot chordplot comparison time points per patient
-    df_pat[[i]]$time_pop <- as.factor(paste(df_pat[[i]]$extract_time, df_pat[[i]]$population, sep="_"))
-    df_pop_time <- split(df_pat[[i]], df_pat[[i]]$time_pop)
-  
-    count_clones <- countClones(df_pat[[i]])
-  
-    ## Calculating overlaps between time points
-    combin <- expand.grid(unique(df_pat[[i]]$extract_time), unique(df_pat[[i]]$population))
-    combin$names <- apply(combin[,c("Var1", "Var2")], 1, paste, collapse = "_")
-  
-    baselines <- subset(combin, combin$Var1 == "baseline")
-    other <- subset(combin, combin$Var1 != "baseline")
-    clonedf <- expand.grid(baselines$names, other$names)
-    colnames(clonedf) <- c("from","to")
-    seqdf <- clonedf
-  
-    lenintersects = numeric(0)
-    seqsintersects = numeric(0)
-    for (j in c(1:nrow(clonedf))){
-        inter <- intersect(df_pop_time[[which(grepl(clonedf[j,1], names(df_pop_time)))]]$clone_id,
-                           df_pop_time[[which(grepl(clonedf[j,2], names(df_pop_time)))]]$clone_id)
-    
-        clones_subset <- count_clones[which(count_clones$clone_id %in% as.character(inter)),]
-    
-        lenintersects <- c(lenintersects, length(inter))
-        seqsintersects <- c(seqsintersects, sum(clones_subset$seq_count))
-    }
-  
-    clonedf$value <- lenintersects
-    seqdf$value <- seqsintersects
-  
-    # Saving both tables
-    write.table(clonedf, file = paste(patdir_overlap,"/Clone_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
-    write.table(seqdf, file = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
-  
-    #grid.col = c("#a6cee3", "#b2df8a", "#fb9a99", "#fdbf6f", "#1f78b4", "#33a02c", "#e31a1c", "#ff7f00")
-    #names(grid.col) <- clonedf$from
-
-  
-    # Clone overlap plot
-    svg(filename = paste(patdir_overlap,"/Clone_overlap_comparison_time_points_",
-                         df_pop_time[[1]]$treatment[1], "_", 
-                         df_pop_time[[1]]$source[1], ".svg", sep=""))
-        chordDiagram(clonedf, 
-                 grid.col = grid.col, 
-                 self.link = 1,
-                 transparency = 0.3,
-                 annotationTrack="grid",
-                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
-        circos.track(track.index = 1, 
-                 panel.fun = function(x, y) {
-                              circos.text(CELL_META$xcenter, 
-                                          CELL_META$ylim[2], 
-                                          CELL_META$sector.index,
-                                          adj = c(0, 0.5))
-                              }, bg.border = NA)
-        title(paste("clone overlap", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
-        circos.clear()
-    dev.off()
-  
-    png(filename = paste(patdir_overlap, "/Clone_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".png", sep=""), width=15, height=15, units = "cm", res = 300)
-    chordDiagram(clonedf, 
-                 #grid.col = grid.col, 
-                 self.link = 1,
-                 transparency = 0.3,
-                 annotationTrack="grid",
-                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
-    circos.track(track.index = 1, panel.fun = function(x, y) {
-      circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
-                  adj = c(0, 0.5))
-    }, bg.border = NA)
-    title(paste("clone_id OVERLAP", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
-    circos.clear()
-    dev.off()
-  
-    # Sequences overlap plot
-    svg(filename = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".svg", sep=""))
-    chordDiagram(seqdf, 
-                 #grid.col = grid.col, 
-                 self.link = 1,
-                 transparency = 0.3,
-                 annotationTrack="grid",
-                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
-    circos.track(track.index = 1, panel.fun = function(x, y) {
-      circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
-                  adj = c(0, 0.5))
-    }, bg.border = NA)
-    title(paste("CLONE SEQ NUM OVERLAP", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
-    circos.clear()
-    dev.off()
-  
-    png(filename = paste(patdir_overlap, "/Clone_seqN_overlap_comparison_time_points_", df_pop_time[[1]]$treatment[1], "_", df_pop_time[[1]]$source[1], ".png", sep=""), width=15, height=15, units = "cm", res = 300)
-    chordDiagram(seqdf, 
-                 #grid.col = grid.col, 
-                 self.link = 1,
-                 transparency = 0.3,
-                 annotationTrack="grid",
-                 preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
-    circos.track(track.index = 1, panel.fun = function(x, y) {
-      circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
-                  adj = c(0, 0.5))
-    }, bg.border = NA)
-    title(paste("CLONE SEQ NUM OVERLAP", df_pop_time[[1]]$treatment[1], df_pop_time[[1]]$source[1]), cex = 0.8)
-    circos.clear()
-    dev.off()
-  
-    # 
-    # 
-    df_TP <- split(df_pat[[i]], df_pat[[i]]$extract_time)
-  
-  # Plots per patient and time point - overlap populations
-    for (n in c(1:length(df_TP))) {
-      df_pop <- split(df_TP[[n]], df_TP[[n]]$population)
-      vennplot <- venn(list(unique(df_pop[[1]]$clone_id), unique(df_pop[[2]]$clone_id), unique(df_pop[[3]]$clone_id), unique(df_pop[[4]]$clone_id)), names = names(df_pop))
-      
-      listInput <- list(df_pop[[1]]$clone_id, df_pop[[2]]$clone_id, df_pop[[3]]$clone_id, df_pop[[4]]$clone_id)
-      names(listInput) <- names(df_pop)
-      combin <- data.frame(from=combinations(4,2,names(df_pop),repeats.allowed=F)[,1], to=combinations(4,2,names(df_pop),repeats.allowed=F)[,2])
-      
-      #listInput <- list(df_pop[[1]]$clone_id, df_pop[[2]]$clone_id, df_pop[[3]]$clone_id, df_pop[[4]]$clone_id)
-      #names(listInput) <- names(df_pop)
-      
-      # Upset plots
-      svg(filename = paste(patdir_overlap,"/Set_plot_", df_pop[[1]]$treatment[1], "_",df_pop[[1]]$extract_time[1], "_",df_pop[[1]]$source[1], ".svg", sep=""))
-      upset(fromList(listInput), group.by = "sets", order.by="freq", point.size = 3.5, line.size=2, mainbar.y.label = "Clone intersections", sets.x.label = "Clones per population")
-      dev.off()
-      
-      png(filename = paste(patdir_overlap,"/Set_plot_", df_pop[[1]]$treatment[1], "_",df_pop[[1]]$extract_time[1], "_",df_pop[[1]]$source[1], ".png", sep=""), res = 600, width = 15, height=10, units = "cm")
-      upset(fromList(listInput), order.by="freq", group.by = "sets", point.size = 3.5, line.size=2, mainbar.y.label = "Clone intersections", sets.x.label = "Clones per population")
-      dev.off()
-      
-      clonedf <- combin
-      seqdf <- combin
-      
-      lenintersects = numeric(0)
-      seqsintersects = numeric(0)
-      for (j in c(1:nrow(clonedf))){
-        inter <- intersect(df_pop[[which(grepl(paste0("^",clonedf[j,1]), names(df_pop)))]]$clone_id, 
-                           df_pop[[which(grepl(paste0("^",clonedf[j,2]), names(df_pop)))]]$clone_id)
-        
-        clones_subset <- count_clones[which(count_clones$clone_id %in% as.character(inter)),]
-        
-        lenintersects <- c(lenintersects, length(inter))
-        seqsintersects <- c(seqsintersects, sum(clones_subset$seq_count))
-      }
-      
-      clonedf$value <- lenintersects
-      seqdf$value <- seqsintersects
-      
-      
-      self_comb <- data.frame(from = names(df_pop), to = names(df_pop))
-      self_clonedf <- self_comb
-      self_seqdf<- self_comb
-      
-      lenintersects <- numeric(0)
-      seqsintersects <- numeric(0)
-      for (pop in self_comb$from){
-        inter <- attributes(vennplot)[["intersections"]][[pop]]
-        clones_subset <- count_clones[which(count_clones$clone_id %in% as.character(inter)),]
-        
-        lenintersects <- c(lenintersects, length(inter))
-        seqsintersects <- c(seqsintersects, sum(clones_subset$seq_count))
-      }
-      self_clonedf$value <- lenintersects
-      self_seqdf$value <- seqsintersects
-      
-      clonedf <- rbind(clonedf, self_clonedf)
-      seqdf <- rbind(seqdf, self_seqdf)
-      
-      write.table(clonedf, file = paste(patdir_overlap,"/Clone_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
-      write.table(seqdf, file = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".tsv", sep=""), sep = "\t", quote = F, row.names = F)
-      
-      grid.col = c("#225ea8","#41b6c4","#a1dab4","#ffffcc")
-      
-      
-      # Plots clone overlap
-      svg(filename = paste(patdir_overlap,"/Clone_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".svg", sep=""))
-      chordDiagram(clonedf, 
-                   #grid.col = grid.col, 
-                   self.link = 1,
-                   transparency = 0.3,
-                   annotationTrack="grid",
-                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
-      circos.track(track.index = 1, panel.fun = function(x, y) {
-                    circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
-                    adj = c(0, 0.5))
-                    }, bg.border = NA)
-      title(paste("clone_id OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
-      circos.clear()
-      dev.off()
-      
-      png(filename = paste(patdir_overlap,"/Clone_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".png", sep=""), res = 600, width = 15, height=10, units = "cm")
-      chordDiagram(clonedf, 
-                   #grid.col = grid.col, 
-                   self.link = 1,
-                   transparency = 0.3,
-                   annotationTrack="grid",
-                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(clonedf))))))
-      circos.track(track.index = 1, panel.fun = function(x, y) {
-        circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
-                    adj = c(0, 0.5))
-      }, bg.border = NA)
-      title(paste("clone_id OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
-      circos.clear()
-      dev.off()
-    
-      # Plots clone sequence numbers overlap
-      svg(filename = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".svg", sep=""))
-      chordDiagram(seqdf, 
-                   #grid.col = grid.col, 
-                   self.link = 1,
-                   transparency = 0.3,
-                   annotationTrack="grid",
-                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
-      circos.track(track.index = 1, panel.fun = function(x, y) {
-        circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
-                    adj = c(0, 0.5))
-      }, bg.border = NA)
-      title(paste("CLONE SEQ NUM OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
-      circos.clear()
-      dev.off()
-      
-      png(filename = paste(patdir_overlap,"/Clone_seqN_overlap_comparison_population_", df_pop[[1]]$treatment[1], "_", df_pop[[1]]$extract_time[1], "_", df_pop[[1]]$source[1], ".png", sep=""), res = 600, width = 15, height=10, units = "cm")
-      chordDiagram(seqdf, 
-                   #grid.col = grid.col, 
-                   self.link = 1,
-                   transparency = 0.3,
-                   annotationTrack="grid",
-                   preAllocateTracks = list(track.height = max(strwidth(unlist(dimnames(seqdf))))))
-      circos.track(track.index = 1, panel.fun = function(x, y) {
-        circos.text(CELL_META$xcenter, CELL_META$ylim[2], CELL_META$sector.index,
-                    adj = c(0, 0.5))
-      }, bg.border = NA)
-      title(paste("CLONE SEQ NUM OVERLAP", df_pop[[1]]$treatment[1], df_pop[[1]]$source[1], df_pop[[1]]$extract_time[1]), cex = 0.8)
-      circos.clear()
-      dev.off()
-    }
-#}
-
-```
-
+<!-- The clonal overlap plots need to be run manually with the "Clone_overlaps.R" script. -->
 
 # Citations
 
