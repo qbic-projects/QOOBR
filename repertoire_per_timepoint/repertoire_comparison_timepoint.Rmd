@@ -463,7 +463,7 @@ Gene family usage is normalized by the number of clones.
 
 ### By patient {-}
 
-```{r, echo=F,fig.width=6, fig.asp=1, fig.align='center'}
+```{r, echo=F,fig.width=10, fig.asp=0.3, fig.align='center'}
 family <- countGenes(df_all, gene="v_call", groups="sample", mode="family", clone="clone_id")
 family$treatment <- sapply(family$sample, function(x) unlist(strsplit(as.character(x), "_"))[1])
 family$time_point <- sapply(family$sample, function(x) unlist(strsplit(as.character(x), "_"))[2])
@@ -476,22 +476,22 @@ gg1 <- ggplot(family, aes(fill=gene, y=clone_freq, x=time_point)) +
             theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 
 
-g2 <- ggplot(family, aes(x=time_point, y=clone_freq, fill=time_point)) +
-    geom_bar(position = "dodge", stat="identity") +
-    ggtitle("V Gene Family Usage") +
-    theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
-    ylab("Frequency") +
-    xlab("") +
-    facet_grid(cols = vars(patient), rows=vars(gene),drop=T, scales = "free" ) +
-    theme(legend.position = "none") +
-    scale_fill_brewer(palette="Blues")
+# g2 <- ggplot(family, aes(x=time_point, y=clone_freq, fill=time_point)) +
+#     geom_bar(position = "dodge", stat="identity") +
+#     ggtitle("V Gene Family Usage") +
+#     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
+#     ylab("Frequency") +
+#     xlab("") +
+#     facet_grid(cols = vars(patient), rows=vars(gene),drop=T, scales = "free" ) +
+#     theme(legend.position = "none") +
+#     scale_fill_brewer(palette="Blues")
 gg1
-g2
+#g2
 ```
 
 ```{r, echo=F}
-ggsave(filename = paste0(vfamily_dir, "/V_Family_distribution_patient.svg"), plot = g2, width = 25, height = 6, units = "cm")
-ggsave(filename = paste0(vfamily_dir, "/V_Family_distribution_patient.png"), plot = g2, width = 25, height = 6, units = "cm")
+ggsave(filename = paste0(vfamily_dir, "/V_Family_distribution_patient.svg"), plot = gg1, width = 20, height = 6, units = "cm")
+ggsave(filename = paste0(vfamily_dir, "/V_Family_distribution_patient.png"), plot = gg1, width = 20, height = 6, units = "cm")
 write.table(family, file = paste0(vfamily_dir, "/V_family_distribution_data.tsv"), sep = "\t", quote = F, row.names = F)
 ```
 
@@ -512,27 +512,37 @@ g3
 
 ### By Population {-}
 
-```{r, echo=F, fig.width=10, fig.asp=0.5, fig.align='center'}
+```{r, echo=F, fig.width=10, fig.asp=0.8, fig.align='center'}
 family <- countGenes(df_all, gene="v_call", groups="sample_pop",
                     mode="family", clone = "clone_id")
 family$treatment <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
 family$time_point <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
 family$patient <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[3])
 family$population <- sapply(family$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[4])
-g2 <- ggplot(family, aes(x=time_point, y=clone_freq, fill=gene)) +
-    scale_color_brewer(palette="Set1") +
-    geom_bar(position = "dodge", stat="identity") +
-    ggtitle("V gene Family Usage") +
-    theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
-    ylab("Frequency") +
-    xlab("") +
-    facet_grid(cols=vars(patient,population), rows=vars(gene)) +
-    theme(legend.position = "none")
-g2
-ggsave(filename = paste0(vfamily_dir,"/V_Family_distribution_patient_population.svg"), plot = g2,
-    width = 30, height = 20, units = "cm")
-ggsave(filename = paste0(vfamily_dir,"/V_Family_distribution_patient_population.png"), plot = g2,
-    width = 30, height = 20, units = "cm")
+family$time_point <- factor(family$time_point, levels=c("baseline","6months","12months"))
+
+gg1 <- ggplot(family, aes(fill=gene, y=clone_freq, x=time_point)) +
+        geom_bar(position="fill", stat="identity") +
+        facet_grid(cols = vars(patient), rows = vars(population), drop=T, scales = "free" ) +
+            theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+
+gg1
+# g2 <- ggplot(family, aes(x=time_point, y=clone_freq, fill=gene)) +
+#     scale_color_brewer(palette="Set1") +
+#     geom_bar(position = "dodge", stat="identity") +
+#     ggtitle("V gene Family Usage") +
+#     theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1)) +
+#     ylab("Frequency") +
+#     xlab("") +
+#     facet_grid(cols=vars(patient,population), rows=vars(gene)) +
+#     theme(legend.position = "none")
+# g2
+ggsave(filename = paste0(vfamily_dir,"/V_Family_distribution_patient_population.svg"), plot = gg1,
+    width = 20, height = 14, units = "cm")
+ggsave(filename = paste0(vfamily_dir,"/V_Family_distribution_patient_population.png"), plot = gg1,
+    width = 20, height = 14, units = "cm")
+ggsave(filename = paste0(vfamily_dir,"/V_Family_distribution_patient_population.pdf"), plot = gg1,
+    width = 20, height = 14, units = "cm")
 write.table(family, file = paste0(vfamily_dir, "/V_family_distribution_data_population.tsv"), sep = "\t",
     quote = F, row.names = F)
 ```
@@ -600,45 +610,63 @@ res_sample <- df_all %>% group_by(sample) %>% dplyr::summarise(Seqs_total=n())
 
 freqs <- merge(x=res, y=res_sample, all.x = T, by.x = "sample", by.y = "sample")
 freqs$Freq <- (freqs$Seqs_isotype/freqs$Seqs_total)
+freqs$extract_time <- factor(freqs$extract_time, levels=c("baseline","6months","12months"))
 
-g4 <- ggplot(freqs, aes(fill=extract_time, y=Freq, x=isotype)) +
-  geom_bar(position = "dodge", stat="identity") +
-  xlab("") +
-  ylab("Frequency") +
-  ggtitle("Isotype frequency") +
-  facet_grid(cols=vars(source), scales = "free", drop = T) +
-  theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+# g4 <- ggplot(freqs, aes(fill=extract_time, y=Freq, x=isotype)) +
+#   geom_bar(position = "dodge", stat="identity") +
+#   xlab("") +
+#   ylab("Frequency") +
+#   ggtitle("Isotype frequency") +
+#   facet_grid(cols=vars(source), scales = "free", drop = T) +
+#   theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+# g4
+
+g4 <- ggplot(freqs, aes(fill=isotype, y=Freq, x=extract_time)) +
+        geom_bar(position="fill", stat="identity") +
+        facet_grid(cols = vars(source), drop=T, scales = "free" ) +
+            theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 g4
+
 ggsave(plot=g4, filename = paste0(isotype_dir,"/Isotype_frequencies_patient.svg"), device = "svg",
-  width = 25, height = 7, units = "cm")
+  width = 20, height = 6, units = "cm")
 ggsave(plot=g4, filename = paste0(isotype_dir,"/Isotype_frequencies_patient.pdf"), device = "pdf",
-  width = 25, height = 7, units = "cm")
+  width = 20, height = 6, units = "cm")
 write.table(freqs, file = paste0(isotype_dir,"/Isotype_frequencies_data.tsv"), sep="\t", quote=F, row.names = F)
 
 ```
 
 ## Isotype usage per cell population
 
-```{r isotype_pop, echo=F, fig.width=15, fig.asp=1, fig.align='center'}
+```{r isotype_pop, echo=F, fig.width=15, fig.asp=0.8, fig.align='center'}
 res <- df_all %>% group_by(isotype, sample_pop, source, treatment, extract_time, population) %>% dplyr::summarise(Seqs_isotype=n())
 res <- with(res, res[order(source),])
 res_sample <- df_all %>% group_by(sample_pop) %>% dplyr::summarise(Seqs_total=n())
 
 freqs <- merge(x=res, y=res_sample, all.x = T, by.x = "sample_pop", by.y = "sample_pop")
 freqs$Freq <- (freqs$Seqs_isotype/freqs$Seqs_total)
+freqs$extract_time <- factor(freqs$extract_time, levels=c("baseline","6months","12months"))
+# g4 <- ggplot(freqs, aes(fill=extract_time, y=Freq, x=isotype)) +
+#  geom_bar(position = "dodge", stat="identity") +
+#  xlab("") +
+#  ylab("Frequency") +
+#  ggtitle("Isotype frequency") +
+#  facet_grid(cols=vars(source), rows=vars(population)) +
+#  theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+# g4
 
-g4 <- ggplot(freqs, aes(fill=extract_time, y=Freq, x=isotype)) +
- geom_bar(position = "dodge", stat="identity") +
- xlab("") +
- ylab("Frequency") +
- ggtitle("Isotype frequency") +
- facet_grid(cols=vars(source), rows=vars(population)) +
- theme(axis.text.x = element_text(angle=45, hjust = 1, vjust = 1))
+g4 <- ggplot(freqs, aes(fill=isotype, y=Freq, x=extract_time)) +
+        geom_bar(position="fill", stat="identity") +
+        facet_grid(cols = vars(source), rows=vars(population),drop=T, scales = "free" ) +
+        theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
 g4
+
+
 ggsave(g4, filename = paste0(isotype_dir,"/Isotype_percentages_cell_population.svg"), device = "svg",
-  width = 25, height = 20, units = "cm")
+  width = 20, height = 14, units = "cm")
 ggsave(g4, filename = paste0(isotype_dir,"/Isotype_percentages_cell_population.pdf"), device = "pdf",
-  width = 25, height = 20, units = "cm")
+  width = 20, height = 14, units = "cm")
+ggsave(g4, filename = paste0(isotype_dir,"/Isotype_percentages_cell_population.png"), device = "png",
+  width = 20, height = 14, units = "cm")
 
 write.table(freqs, file = paste0(isotype_dir, "/Isotype_frequencies_cell_population_data.tsv"), sep="\t", quote = F, row.names = F)
 ```
