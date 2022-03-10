@@ -716,8 +716,10 @@ all_clonedf_tp <- all_clonedf_tp[!(all_clonedf_tp$fromto %in% c("baseline_baseli
 all_clonedf_tp$fromto <- factor(all_clonedf_tp$fromto, levels=c("baseline_6months","6months_12months","baseline_12months"))
 ggplot(all_clonedf_tp, aes(x=fromto, y=value)) +
   geom_boxplot() +
-  geom_jitter(aes(color=source), width = 0.2)
-ggsave(paste(outdir,"/Clone_overlap/Clone_overlap_boxplot_allvalues.png", sep = ""), device="png")
+  geom_jitter(aes(color=source), width = 0.2) +
+  theme(axis.text.x=element_text(angle=45, hjust=1, vjust=1))
+ggsave(paste(outdir,"/Clone_overlap/Clone_overlap_boxplot_allvalues.png", sep = ""), device="png",
+       width = 12, height = 8, units = "cm")
 
 all_clonedf_tp_subset <- all_clonedf_tp[,c("fromto", "source", "value")]
 all_clonedf_tp_transformed <- dcast(data=as.data.table(all_clonedf_tp_subset), formula=source~fromto, fun.aggregate=sum, value.var="value")
@@ -725,9 +727,11 @@ all_clonedf_tp_transformed$delta_6 <- all_clonedf_tp_transformed$`6months_12mont
 
 ggplot(all_clonedf_tp_transformed, aes(x=source,y=delta_6)) +
   geom_bar(stat="identity") +
-  ggtitle("Increase in number of clone overlaps (# overlaps 6-12mo / # overlaps B-6mo)") +
+  geom_hline(yintercept = 1, color="blue") +
+  ggtitle("overlaps 6-12mo / overlaps B-6mo") +
   ylab("Overlap number difference") + xlab("") 
-ggsave(paste(outdir,"/Clone_overlap/Clone_overlap_ratio_between_6months12months_and_6monthsbaseline.png",sep=""), device="png")
+ggsave(paste(outdir,"/Clone_overlap/Clone_overlap_ratio_between_6months12months_and_6monthsbaseline.png",sep=""), device="png",
+       width = 12, height = 8, units = "cm")
 
 write.table(all_clonedf_tp_transformed, file=paste(outdir,"/Clone_overlap/Clone_overlap_comparison_timepoints_unmelted.tsv", sep = ""), sep = "\t", quote=F, row.names = F)
 

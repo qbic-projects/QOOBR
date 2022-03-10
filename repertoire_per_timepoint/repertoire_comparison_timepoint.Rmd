@@ -249,10 +249,263 @@ write.table(abund_pop@abundance, file = paste0(abundance_dir, "/Clonal_abundance
 
 ```
 
+## Count clones per population
+
+```{r count_clones_pop, echo=F}
+count_clones_pop <- countClones(df_all, groups = "sample_pop", copy = "duplicate_count")
+
+count_clones_pop$treatment <- sapply(count_clones_pop$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
+count_clones_pop$time_point <- sapply(count_clones_pop$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
+count_clones_pop$patient <- sapply(count_clones_pop$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[3])
+write.table(count_clones_pop, file = paste0(abundance_dir, "/Clonal_numbers_data_subject_population.tsv"), sep = "\t", quote = F, row.names = F)
+
+```
+
+## Clonal diversification index
+
+```{r clonal_diversification, echo=FALSE, include=FALSE}
+
+# Calculate gini index
+clonal_diversification_index <- function(df){
+  # Computing cumulative frequence distribution
+  clone_sequences <- df$seq_count
+  R_vec <- c()
+  n = 0
+  for (j in clone_sequences){
+    n = n + j
+    R_vec <- append(R_vec,n)
+  }
+  R_vec_norm <- R_vec / n
+  
+  m = 0
+  g = 0
+  for (i in c(1:length(R_vec_norm))){
+    g = g + (R_vec_norm[i] - i/length(R_vec_norm))
+  }
+  gini_index = g/length(R_vec_norm)
+  return(gini_index)
+}
+
+clonal_diversification_mean <- c()
+clonal_diversification_std <- c()
+sample_name <- c()
+clones_sample_pop <- split(count_clones_pop, count_clones_pop$sample_pop)
+clones_sample_pop$Cladribin_baseline_CLAD4_N <- NULL
+cloneN <- count(count_clones_pop, vars="sample_pop")
+sample_size <- min(cloneN$n)
+
+for (i in c(1:length(clones_sample_pop))) {
+  gi_boot <- c()
+  for (r in c(1:nboot)) {
+    # sample N clones according to sample size
+    sample_df <- sample_n(clones_sample_pop[[i]], size = sample_size, replace = F, weight = clones_sample_pop[[i]]$seq_freq)
+    gi <- clonal_diversification_index(sample_df)
+    gi_boot <- append(gi_boot, gi)
+  }
+  clonal_diversification_mean <- append(clonal_diversification_mean, mean(gi_boot))
+  clonal_diversification_std <- append(clonal_diversification_std, sd(gi_boot))
+  sample_name <- append(sample_name, names(clones_sample_pop)[i])
+}
+
+df_gini_index <- data.frame(sample_pop = sample_name, clonal_diversification_mean = clonal_diversification_mean, clonal_diversification_std = clonal_diversification_std)
+df_gini_index$treatment <- sapply(df_gini_index$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
+df_gini_index$time_point <- sapply(df_gini_index$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
+df_gini_index$patient <- sapply(df_gini_index$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[3])
+df_gini_index$population <- sapply(df_gini_index$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[4])
+df_gini_index$time_point <- factor(df_gini_index$time_point, c("baseline","6months","12months"))
+
+write.table(df_gini_index, paste0(abundance_dir, "/Clonal_diversification_index_table.tsv"),
+            sep="\t", quote = F, row.names = F)
+
+boxplot_gini <- ggplot(df_gini_index, aes(y=clonal_diversification_mean, x=time_point)) +
+    geom_boxplot() +
+    geom_point(position=dodge, stat="identity", size = 1) +
+    #geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
+    xlab("") + ylab("Clonal diversification") +
+    ggtitle(paste0("Clonal diversification index (N = ",sample_size,")")) +
+    facet_grid(cols=vars(population), drop=T, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+boxplot_gini
+
+ggsave(plot=boxplot_gini, filename = paste0(abundance_dir,"/Clonal_diversification_index_patient_population.png"), device="png", 
+       width = 15, height = 6, units="cm")
+ggsave(plot=boxplot_gini, filename = paste0(abundance_dir,"/Clonal_diversification_index_patient_population.pdf"), device="pdf", 
+       width=15, height=6, units="cm")
+
+gini_m <- df_gini_index[(df_gini_index$population=="M"),]
+res_m_6_baseline <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_m[(gini_m$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_m_6_baseline
+res_m_6_12 <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_m[(gini_m$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_m_6_12
+res_m_b_12 <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_m[(gini_m$time_point %in% c("12months","baseline")),], 
+                              paired = TRUE)
+res_m_b_12
+
+gini_dn <- df_gini_index[(df_gini_index$population=="DN"),]
+res_dn_6_baseline <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_dn[(gini_dn$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_dn_6_baseline
+res_dn_6_12 <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_dn[(gini_dn$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_dn_6_12
+
+gini_n <- df_gini_index[(df_gini_index$population=="N"),]
+gini_n <- gini_n[!(gini_n$patient=="CLAD4"),]
+res_n_6_baseline <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_n[(gini_n$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_n_6_baseline
+res_n_6_12 <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_n[(gini_n$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_n_6_12
+
+gini_p <- df_gini_index[(df_gini_index$population=="P"),]
+res_p_6_baseline <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_p[(gini_p$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_p_6_baseline
+res_p_6_12 <- wilcox.test(clonal_diversification_mean~time_point, 
+                              data=gini_p[(gini_p$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_p_6_12
+```
+
+
+
+
+```{r clonal_sizes}
+
+# Calculate clonal size percentages
+clone_percentage_gt_size <- function(df, size){
+  # Computing cumulative frequence distribution
+  clone_sequences <- df$seq_count
+  df_size <- df[which(clone_sequences >= size),]
+  clone_N <- nrow(df)
+  clone_size_N <- nrow(df_size)
+  percentage_size <- clone_size_N * 100 / clone_N
+  return(percentage_size)
+}
+
+percentage_gt_2 <- c()
+percentage_gt_5 <- c()
+percentage_gt_10 <- c()
+percentage_gt_50 <- c()
+percentage_gt_100 <- c()
+percentage_gt_500 <- c()
+percentage_gt_1000 <- c()
+percentage_gt_2 <- c()
+sd_percentage_gt_2 <- c()
+sd_percentage_gt_5 <- c()
+sd_percentage_gt_10 <- c()
+sd_percentage_gt_50 <- c()
+sd_percentage_gt_100 <- c()
+sd_percentage_gt_500 <- c()
+sd_percentage_gt_1000 <- c()
+
+sample_name <- c()
+clones_sample_pop <- split(count_clones_pop, count_clones_pop$sample_pop)
+clones_sample_pop$Cladribin_baseline_CLAD4_N <- NULL
+cloneN <- count(count_clones_pop, vars="sample_pop")
+sample_size <- min(cloneN$n)
+
+for (i in c(1:length(clones_sample_pop))) {
+  percentage_gt_2_boot <- c()
+  percentage_gt_5_boot <- c()
+  percentage_gt_10_boot <- c()
+  percentage_gt_50_boot <- c()
+  percentage_gt_100_boot <- c()
+  percentage_gt_500_boot <- c()
+  percentage_gt_1000_boot <- c()
+  for (r in c(1:nboot)) {
+    sample_df <- sample_n(clones_sample_pop[[i]], size = sample_size, replace = F, weight = clones_sample_pop[[i]]$seq_freq)
+    percentage_gt_2_boot <- append(percentage_gt_2_boot, clone_percentage_gt_size(sample_df, 2))
+    percentage_gt_5_boot <- append(percentage_gt_5_boot, clone_percentage_gt_size(sample_df, 5))
+    percentage_gt_10_boot <- append(percentage_gt_10_boot, clone_percentage_gt_size(sample_df, 10))
+    percentage_gt_50_boot <- append(percentage_gt_50_boot, clone_percentage_gt_size(sample_df, 50))
+    percentage_gt_100_boot <- append(percentage_gt_100_boot, clone_percentage_gt_size(sample_df, 100))
+    percentage_gt_500_boot <- append(percentage_gt_500_boot, clone_percentage_gt_size(sample_df, 500))
+    percentage_gt_1000_boot <- append(percentage_gt_1000_boot,clone_percentage_gt_size(sample_df, 1000))
+  }
+  percentage_gt_2 <- append(percentage_gt_2, mean(percentage_gt_2_boot))
+  percentage_gt_5 <- append(percentage_gt_5, mean(percentage_gt_5_boot))
+  percentage_gt_10 <- append(percentage_gt_10, mean(percentage_gt_10_boot))
+  percentage_gt_50 <- append(percentage_gt_50, mean(percentage_gt_50_boot))
+  percentage_gt_100 <- append(percentage_gt_100, mean(percentage_gt_100_boot))
+  percentage_gt_500 <- append(percentage_gt_500, mean(percentage_gt_500_boot))
+  percentage_gt_1000 <- append(percentage_gt_1000, mean(percentage_gt_1000_boot))
+  sd_percentage_gt_2 <- append(sd_percentage_gt_2, sd(percentage_gt_2_boot))
+  sd_percentage_gt_5 <- append(sd_percentage_gt_5, sd(percentage_gt_5_boot))
+  sd_percentage_gt_10 <- append(sd_percentage_gt_10, sd(percentage_gt_10_boot))
+  sd_percentage_gt_50 <- append(sd_percentage_gt_50, sd(percentage_gt_50_boot))
+  sd_percentage_gt_100 <- append(sd_percentage_gt_100, sd(percentage_gt_100_boot))
+  sd_percentage_gt_500 <- append(sd_percentage_gt_500, sd(percentage_gt_500_boot))
+  sd_percentage_gt_1000 <- append(sd_percentage_gt_1000, sd(percentage_gt_1000_boot))
+  sample_name <- append(sample_name, names(clones_sample_pop)[i])
+}
+
+clones_percentages <- data.frame(sample_pop = sample_name, 
+                                 gt_2 = percentage_gt_2,
+                                 gt_5 = percentage_gt_5,
+                                 gt_10 = percentage_gt_10,
+                                 gt_50 = percentage_gt_50, 
+                                 gt_100 = percentage_gt_100,
+                                 gt_500 = percentage_gt_500,
+                                 gt_1000 = percentage_gt_1000)
+clones_sd_percentages <- data.frame(sample_pop = sample_name,
+                                    gt_2 = sd_percentage_gt_2,
+                                    gt_5 = sd_percentage_gt_5,
+                                    gt_10 = sd_percentage_gt_10,
+                                    gt_50 = sd_percentage_gt_50,
+                                    gt_100 = sd_percentage_gt_100,
+                                    gt_500 = sd_percentage_gt_500,
+                                    gt_1000 = sd_percentage_gt_1000)
+clones_percentages_melt <- melt(data.table(clones_percentages), id = "sample_pop", value.name = "percentage")
+clones_sd_percentages_melt <- melt(data.table(clones_sd_percentages), id="sample_pop", value.name = "sd")
+
+clones_percentages_df <- merge(x=clones_percentages_melt, y=clones_sd_percentages_melt, by=c("sample_pop","variable"))
+
+
+clones_percentages_df$treatment <- sapply(clones_percentages_df$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
+clones_percentages_df$time_point <- sapply(clones_percentages_df$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
+clones_percentages_df$time_point <- factor(clones_percentages_df$time_point,levels=c("baseline","6months","12months"))
+clones_percentages_df$patient <- sapply(clones_percentages_df$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[3])
+clones_percentages_df$population <- sapply(clones_percentages_df$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[4])
+
+write.table(clones_percentages_df, paste0(abundance_dir,"/Clonal_size_percentage_patient_population_table.tsv" ),
+            sep="\t", quote = F, row.names = F)
+
+clones_percentage_one_C <- clones_percentages_df[which(clones_percentages_df$variable == "gt_10"),]
+boxplot_clone_size <- ggplot(clones_percentage_one_C, aes(y=percentage, x=time_point)) +
+    geom_boxplot() +
+    geom_point(position=dodge, stat="identity", size = 1) +
+    #geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
+    xlab("") + ylab("Percentage") +
+    ggtitle(paste0("Clonal size percentage (N = ",sample_size,")")) +
+    facet_grid(cols=vars(population), drop=T, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+boxplot_clone_size
+
+ggsave(plot=boxplot_clone_size, filename = paste0(abundance_dir,"/Clones_percentages_greater_than_10.png"), device="png", 
+       width = 15, height = 6, units="cm")
+ggsave(plot=boxplot_clone_size, filename = paste0(abundance_dir,"/Clones_percentages_greater_than_10.pdf"), device="pdf", 
+       width=15, height=6, units="cm")
+
+
+
+
+```
 
 ## Count clones per population
 
-```{r count_clones}
+```{r count_clones_pop}
 df_countclones_copy <- countClones(df_all,groups="sample_pop",copy = "duplicate_count")
 df_countclones_copy$treatment <- sapply(df_countclones_copy$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
 df_countclones_copy$time_point <- sapply(df_countclones_copy$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
@@ -381,7 +634,7 @@ ggsave(plot = dq0, filename = paste0(diversity_dir,"/Diversity_q0_test_subject_p
 
 ## Clonal diversity per cell population
 
-```{r clonal_diversity_pop, fig.width=12, echo = FALSE, message=FALSE}
+```{r clonal_diversity_pop, echo = FALSE, message=FALSE}
 sample_div_pop <- alphaDiversity(abund_pop, group="sample_pop", min_q=0, max_q=4, step_q=0.05,
                                 ci=0.95, nboot=nboot)
 sample_main <- paste0("Sample diversity (N=", sample_div_pop@n[1], ")")
@@ -389,6 +642,11 @@ sample_div_pop@diversity$treatment <- sapply(sample_div_pop@diversity$sample_pop
 sample_div_pop@diversity$time_point <- sapply(sample_div_pop@diversity$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
 sample_div_pop@diversity$patient <- sapply(sample_div_pop@diversity$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[3])
 sample_div_pop@diversity$population <- sapply(sample_div_pop@diversity$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[4])
+```
+
+```{r clonal_diversity_pop_plot, fig.width=12, echo=F, message=F}
+sample_div_pop@diversity$time_point <- factor(sample_div_pop@diversity$time_point, c("baseline","6months","12months"))
+sample_div_pop_df <-  sample_div_pop@diversity
 div_pop <- ggplot(sample_div_pop@diversity, aes(x = q, y = d, group = sample_pop)) +
     geom_ribbon(aes(ymin = d_lower,
                     ymax = d_upper, fill = time_point), alpha = 0.4) +
@@ -415,7 +673,7 @@ sample_div_q1 <- sample_div_pop@diversity[which(sample_div_pop@diversity$q == 1)
 sample_main <- paste0("Sample diversity at q=1 (N=", sample_div_pop@n[1], ")")
 dodge <- position_dodge(width = 0.9)
 dq1_pop <- ggplot(sample_div_q1, aes(y=d, x=time_point)) +
-    geom_point(position=dodge, stat="identity", size = 3) +
+    geom_point(position=dodge, stat="identity", size = 1) +
     geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
     xlab("") + ylab("Diversity (q=1)") +
     ggtitle(sample_main) +
@@ -430,6 +688,93 @@ ggsave(plot = dq1_pop, filename = paste0(diversity_dir,"/Diversity_q1_test_popul
         width = 20, height = 15, units="cm")
 ```
 
+```{r, fig.width=10, fig.asp=0.4,echo = FALSE}
+sample_div_q1$subj_pop <- paste(sample_div_q1$patient, sample_div_q1$population, sep = "_")
+
+boxplot_pop <- ggplot(sample_div_q1, aes(y=d, x=time_point)) +
+    geom_boxplot() +
+    geom_point(position=dodge, stat="identity", size = 1) +
+    #geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
+    xlab("") + ylab("Diversity (q=1)") +
+    ggtitle(sample_main) +
+    facet_grid(cols=vars(population), drop=T, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+boxplot_pop
+
+ggsave(plot = boxplot_pop, filename = paste0(diversity_dir,"/Diversity_q1_test_boxplot_population.png"), device="png",
+        width = 15, height = 6, units="cm")
+ggsave(plot = boxplot_pop, filename = paste0(diversity_dir,"/Diversity_q1_test_boxplot_population.pdf"), device="pdf",
+        width = 15, height = 6, units="cm")
+
+sample_div_q1_m <- sample_div_q1[(sample_div_q1$population=="M"),]
+res_m_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_m[(sample_div_q1_m$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_m_6_baseline
+res_m_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_m[(sample_div_q1_m$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_m_12_6
+res_m_12_b <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_m[(sample_div_q1_m$time_point %in% c("12months","baseline")),], 
+                              paired = TRUE)
+res_m_12_b
+
+sample_div_q1_dn <- sample_div_q1[(sample_div_q1$population=="DN"),]
+res_dn_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_dn[(sample_div_q1_dn$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_dn_6_baseline
+res_dn_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_dn[(sample_div_q1_dn$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_dn_12_6
+
+sample_div_q1_p <- sample_div_q1[(sample_div_q1$population=="P"),]
+res_p_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_p[(sample_div_q1_p$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_p_6_baseline
+res_p_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_p[(sample_div_q1_p$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_p_12_6
+
+sample_div_q1_n <- sample_div_q1[(sample_div_q1$population=="N"),]
+sample_div_q1_n <- sample_div_q1_n[!(sample_div_q1_n$patient=="CLAD4"),]
+res_n_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_n[(sample_div_q1_n$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_n_6_baseline
+res_n_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q1_n[(sample_div_q1_n$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_n_12_6
+
+
+
+# sample_div_q1_transformed <- dcast(data=as.data.table(sample_div_q1), formula=subj_pop~time_point, fun.aggregate=sum, value.var="d")
+# sample_div_q1_transformed$`6months-baseline` <- sample_div_q1_transformed$`6months` - sample_div_q1_transformed$baseline
+# sample_div_q1_transformed$`12months-6months` <- sample_div_q1_transformed$`12months` - sample_div_q1_transformed$`6months`
+# sample_div_q1_transformed$`12months-baseline` <- sample_div_q1_transformed$`12months` - sample_div_q1_transformed$baseline
+# 
+# sample_div_q1_melted <- melt(sample_div_q1_transformed, id=c("subj_pop"), measure.vars =2:7)
+# sample_div_q1_melted$subject <- sapply(sample_div_q1_melted$subj_pop, function(x) unlist(strsplit(as.character(x), "_"))[1])
+# sample_div_q1_melted$pop <- sapply(sample_div_q1_melted$subj_pop, function(x) unlist(strsplit(as.character(x), "_"))[2])
+# sample_div_q1_melted$time_point <- sample_div_q1_melted$variable
+# sample_div_q1_melted <- sample_div_q1_melted[!(variable %in% c("baseline","12months","6months")),]
+# 
+# diff_pop <- ggplot(sample_div_q1_melted, aes(y=value, x=pop)) +
+#     geom_boxplot() +
+#     geom_point(position=dodge, stat="identity", size = 1) +
+#     #geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
+#     xlab("") + ylab("Diversity (q=1)") +
+#     ggtitle(sample_main) +
+#     facet_grid(cols=vars(time_point), drop=T, scales = "free") +
+#     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# diff_pop
+```
+
 #### q=0 {-}
 
 ```{r clonal_diversity_q0_pop, echo = FALSE}
@@ -437,7 +782,7 @@ sample_div_q0 <- sample_div_pop@diversity[which(sample_div_pop@diversity$q == 0)
 sample_main <- paste0("Sample diversity at q=0 (N=", sample_div_pop@n[1], ")")
 dodge <- position_dodge(width = 0.9)
 dq0_pop <- ggplot(sample_div_q0, aes(y=d, x=time_point)) +
-    geom_point(position=dodge, stat="identity", size = 3) +
+    geom_point(position=dodge, stat="identity", size = 1) +
     geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
     xlab("") + ylab("Diversity (q=0)") +
     ggtitle(sample_main) +
@@ -451,6 +796,70 @@ ggsave(plot = dq0_pop, filename = paste0(diversity_dir,"/Diversity_q0_test_popul
         width = 20, height = 15, units="cm")
 ggsave(plot = dq0_pop, filename = paste0(diversity_dir,"/Diversity_q0_test_population.pdf"), device="pdf",
         width = 20, height = 15, units="cm")
+```
+
+```{r, echo = FALSE}
+sample_div_q0$subj_pop <- paste(sample_div_q0$patient, sample_div_q0$population, sep = "_")
+
+boxplot_pop <- ggplot(sample_div_q0, aes(y=d, x=time_point)) +
+    geom_boxplot() +
+    geom_point(position=dodge, stat="identity", size = 1) +
+    #geom_errorbar(aes(ymin=d-d_sd, ymax=d+d_sd), width = .2, position=dodge) +
+    xlab("") + ylab("Diversity (q=0)") +
+    ggtitle(sample_main) +
+    facet_grid(cols=vars(population), drop=T, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+boxplot_pop
+
+ggsave(plot = boxplot_pop, filename = paste0(diversity_dir,"/Diversity_q0_test_boxplot_population.png"), device="png",
+        width = 15, height = 6, units="cm")
+ggsave(plot = boxplot_pop, filename = paste0(diversity_dir,"/Diversity_q0_test_boxplot_population.pdf"), device="pdf",
+        width = 15, height = 6, units="cm")
+
+sample_div_q0_m <- sample_div_q0[(sample_div_q0$population=="M"),]
+res_m_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_m[(sample_div_q0_m$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_m_6_baseline
+res_m_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_m[(sample_div_q0_m$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_m_12_6
+res_m_12_b <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_m[(sample_div_q0_m$time_point %in% c("12months","baseline")),], 
+                              paired = TRUE)
+res_m_12_b
+
+sample_div_q0_dn <- sample_div_q0[(sample_div_q0$population=="DN"),]
+res_dn_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_dn[(sample_div_q0_dn$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_dn_6_baseline
+res_dn_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_dn[(sample_div_q0_dn$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_dn_12_6
+
+sample_div_q0_p <- sample_div_q0[(sample_div_q0$population=="P"),]
+res_p_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_p[(sample_div_q0_p$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_p_6_baseline
+res_p_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_p[(sample_div_q0_p$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_p_12_6
+
+sample_div_q0_n <- sample_div_q0[(sample_div_q0$population=="N"),]
+sample_div_q0_n <- sample_div_q0_n[!(sample_div_q0_n$patient=="CLAD4"),]
+res_n_6_baseline <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_n[(sample_div_q0_n$time_point %in% c("baseline","6months")),], 
+                              paired = TRUE)
+res_n_6_baseline
+res_n_12_6 <- wilcox.test(d~time_point, 
+                              data=sample_div_q0_n[(sample_div_q0_n$time_point %in% c("12months","6months")),], 
+                              paired = TRUE)
+res_n_12_6
 ```
 
 # V gene usage
