@@ -14,10 +14,11 @@ library(gtools)
 theme_set(theme_bw(base_family = "ArialMT") +
             theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), text = element_text(family="ArialMT")))
 
-outdir <- "repertoire_comparison"
+outdir <- "repertoire_comparison_bootstrapped"
 dir.create(outdir)
 
-df_ab_pat <- read.csv("./repertoire_comparison/Abundance/Clonal_abundance_data_subject.tsv", sep = "\t")
+## Reading clonal abundance table, which has been bootstrapped.
+df_ab_pat <- read.csv("repertoire_comparison/Abundance/Clonal_abundance_data_subject.tsv", sep = "\t")
 
 # Remove patient CLAD4 as it is missing a time point
 df_subset <- df_ab_pat[!(df_ab_pat$patient == "CLAD4"),]
@@ -34,8 +35,13 @@ for (i in c(1:length(df_pat))) {
   patdir_overlap <- paste(outdir,"Clone_overlap",names(df_pat)[i], sep="/")
   dir.create(patdir_overlap)
 
-  ## Calculating overlaps between time points
+  ###################################################################
+  ## Plot chordplot comparison between time points
+  ###################################################################
   df_time <- split(df_pat[[i]], df_pat[[i]]$time_point)
+
+  # Need to calculate vennplot to be able to count the clones without overlaps to other time points
+  vennplot <- venn(list(unique(df_time[[1]]$clone_id), unique(df_time[[2]]$clone_id), unique(df_time[[3]]$clone_id)), names = names(df_time))
 
   #count_clones <- countClones(df_pat[[i]])
 
