@@ -2,3 +2,6 @@ from	to	value	patient
 baseline	6months	123.762719247299	CLAD3
 baseline	12months	115.272476478104	CLAD3
 6months	12months	106.145429201998	CLAD3
+12months	12months	55.6151411313741	CLAD3
+6months	6months	54.8260541293995	CLAD3
+baseline	baseline	42.8082529910559	CLAD3

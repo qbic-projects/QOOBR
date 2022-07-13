@@ -2,3 +2,6 @@ from	to	value	patient
 baseline	6months	4389	CLAD6
 baseline	12months	4254	CLAD6
 6months	12months	21215	CLAD6
+12months	12months	33096	CLAD6
+6months	6months	10492	CLAD6
+baseline	baseline	4005	CLAD6

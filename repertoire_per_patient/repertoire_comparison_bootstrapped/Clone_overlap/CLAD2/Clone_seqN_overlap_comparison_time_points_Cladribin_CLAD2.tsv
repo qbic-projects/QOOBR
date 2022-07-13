@@ -2,3 +2,6 @@ from	to	value	patient
 baseline	6months	139.904896039029	CLAD2
 baseline	12months	131.843913346498	CLAD2
 6months	12months	83.3812289464514	CLAD2
+12months	12months	24.1285863631084	CLAD2
+6months	6months	18.2460216052968	CLAD2
+baseline	baseline	21.8861656406087	CLAD2
