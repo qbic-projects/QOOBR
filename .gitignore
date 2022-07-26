@@ -1,5 +1,8 @@
 repertoire_comparison
 repertoire_comparison_tp
+repertoire_comparison_bootstrapped
+repertoire_comparison_bootstrapped_exclusive_intersects
+repertoire_per_timepoint
 *.zip
 .Rhistory
 .RDataTmp
