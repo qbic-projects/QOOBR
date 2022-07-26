@@ -19,3 +19,6 @@ dependencies:
   - conda-forge::r-gtools
   - conda-forge::r-data.table
   - conda-forge::r-igraph
+  - conda-forge::r-ggupset
+  - conda-forge::r-ggpubr
+  - conda-forge::r-cowplot
