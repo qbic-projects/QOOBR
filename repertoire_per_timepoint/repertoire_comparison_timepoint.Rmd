@@ -221,6 +221,7 @@ abund_pop@abundance$patient <- sapply(abund_pop@abundance$sample_pop, function(x
 abund_pop@abundance$population <- sapply(abund_pop@abundance$sample_pop, function(x) unlist(strsplit(as.character(x), "_"))[4])
 abund_main <- paste0("Clonal abundance (N=", abund_pop@n[1], ")")
 ```
+
 ```{r clonal_abundance_pop2, fig.width=12, echo=FALSE}
 abund_pop@abundance$population <- factor(abund_pop@abundance$population, levels = c("N", "M", "DN", "P"))
 abund_pop@abundance$time_point <- factor(abund_pop@abundance$time_point, levels = c("baseline", "6months", "12months"))
@@ -694,6 +695,8 @@ ggsave(plot = div_pop, filename = paste0(diversity_dir,"/Diversity_subject_popul
         width = 27, height = 20, units="cm")
 ggsave(plot = div_pop, filename = paste0(diversity_dir,"/Diversity_subject_population.pdf"), device="pdf",
         width = 27, height = 20, units="cm")
+ggsave(plot = div_pop, filename = paste0(diversity_dir,"/Diversity_subject_population.png"), device="png",
+        width = 27, height = 20, units="cm")
 ```
 
 ### Clonal diversity per population at specific q values {.tabset .tabset-fade .tabset-pills}
@@ -722,7 +725,7 @@ ggsave(plot = dq1_pop, filename = paste0(diversity_dir,"/Diversity_q1_test_popul
         width = 20, height = 15, units="cm")
 ```
 
-```{r, fig.width=10, fig.asp=0.4,echo = FALSE}
+```{r, fig.width=10, fig.asp=0.3,echo = FALSE}
 sample_div_q1$subj_pop <- paste(sample_div_q1$patient, sample_div_q1$population, sep = "_")
 
 sample_div_q1 <- sample_div_q1[!(sample_div_q1$sample_pop %in% c("Cladribin_12months_CLAD4_N","Cladribin_6months_CLAD4_N","Cladribin_baseline_CLAD4_N")),]
@@ -754,7 +757,7 @@ boxplot_divq1 <- ggboxplot(sample_div_q1, x = "time_point", y = "d",
                       labels=c("B", "6M", "12M")) +
         #theme(axis.text.x = element_text(angle = 45, hjust=1), legend.position = "none") +
         xlab("") + ylab("Diversity (q=1)") +
-        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif") +
+        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif", hide.ns = T) +
         stat_compare_means(label="p.format", label.y = 1300)
 
 boxplot_divq1
@@ -767,7 +770,7 @@ boxplot_divq1_nokruskal <- ggboxplot(sample_div_q1, x = "time_point", y = "d",
                       labels=c("B", "6M", "12M")) +
         #theme(axis.text.x = element_text(angle = 45, hjust=1), legend.position = "none") +
         xlab("") + ylab("Diversity (q=1)") +
-        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif")
+        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif", hide.ns = T)
 boxplot_divq1_nokruskal
 ```
 
@@ -780,7 +783,7 @@ ggsave(plot=boxplot_divq1, filename = paste0(diversity_dir,"/Diversity_q1_subj_p
 
 #### q=0 {-}
 
-```{r clonal_diversity_q0_pop, fig.width=10, fig.asp = 1, echo = FALSE}
+```{r clonal_diversity_q0_pop, fig.width=10, fig.asp = 0.6, echo = FALSE}
 sample_div_q0 <- sample_div_pop@diversity[which(sample_div_pop@diversity$q == 0),]
 
 
@@ -803,7 +806,7 @@ ggsave(plot = dq0_pop, filename = paste0(diversity_dir,"/Diversity_q0_test_popul
         width = 20, height = 15, units="cm")
 ```
 
-```{r, fig.width=10, fig.asp=0.4,echo = FALSE}
+```{r, fig.width=10, fig.asp=0.3,echo = FALSE}
 # Boxplot with Wilcoxon paired tests (ggpubr)
 sample_div_q0 <- sample_div_q0[!(sample_div_q0$sample_pop %in% c("Cladribin_12months_CLAD4_N","Cladribin_6months_CLAD4_N","Cladribin_baseline_CLAD4_N")),]
 
@@ -817,7 +820,7 @@ boxplot_divq0 <- ggboxplot(sample_div_q0, x = "time_point", y = "d",
                       labels=c("B", "6M", "12M")) +
         #theme(axis.text.x = element_text(angle = 45, hjust=1), legend.position = "none") +
         xlab("") + ylab("Diversity (q=0)") +
-        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif") +
+        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif", hide.ns = T) +
         stat_compare_means(label="p.format", label.y=1300)
 boxplot_divq0
 
@@ -829,7 +832,7 @@ boxplot_divq0_nokruskal <- ggboxplot(sample_div_q0, x = "time_point", y = "d",
                       labels=c("B", "6M", "12M")) +
         #theme(axis.text.x = element_text(angle = 45, hjust=1), legend.position = "none") +
         xlab("") + ylab("Diversity (q=0)") +
-        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif")
+        stat_compare_means(comparisons = my_comparisons, paired =T, method = "wilcox", label="p.signif", hide.ns = T)
 boxplot_divq0_nokruskal
 ```
 
@@ -842,12 +845,11 @@ ggsave(plot = boxplot_divq0, filename = paste0(diversity_dir,"/Diversity_q0_test
 
 ## Figure diversity and abundance metrics
 
-```{r, fig.width=6, fig.asp=1.2,echo = FALSE}
-all_boxplots <- plot_grid(boxplot_gini,
+```{r, fig.width=6, fig.asp=1,echo = FALSE}
+all_boxplots <- cowplot::plot_grid(boxplot_divq0, 
+                          boxplot_divq1,
                           boxplot_clone_size,
-                          boxplot_divq0,
-                          boxplot_divq1, 
-          labels=c("A","B","C","D"),
+          labels=c("A","B","C"),
           ncol=1,
           align = T
           )
@@ -856,18 +858,33 @@ all_boxplots
 
 ```{r, fig.width=6, echo=F, include=F}
 ggsave(plot = all_boxplots, filename = paste0(diversity_dir,"/Figure_allboxplots.png"), device="png",
-        width = 20, height = 25, units="cm")
+        width = 20, height = 16, units="cm")
 ggsave(plot = all_boxplots, filename = paste0(diversity_dir,"/Figure_allboxplots.pdf"), device="pdf",
-        width = 20, height = 25, units="cm")
+        width = 20, height = 16, units="cm")
 ```
 
+```{r, fig.width=6, fig.asp=0.4,echo = FALSE}
+all_boxplots_suppl <- plot_grid(boxplot_gini,
+          labels=c("A"),
+          ncol=1,
+          align = T
+          )
+all_boxplots_suppl
+```
 
-```{r, fig.width=6, fig.asp=1.5,echo = FALSE}
-all_boxplots_nokruskal <- plot_grid(boxplot_gini_nokruskal,
-                          boxplot_clone_size_nokruskal,
+```{r, fig.width=6, echo=F, include=F}
+ggsave(plot = all_boxplots_suppl, filename = paste0(diversity_dir,"/Figure_allboxplots_suppl.png"), device="png",
+        width = 20, height =7, units="cm")
+ggsave(plot = all_boxplots_suppl, filename = paste0(diversity_dir,"/Figure_allboxplots_suppl.pdf"), device="pdf",
+        width = 20, height = 7, units="cm")
+```
+
+```{r, fig.width=6, fig.asp=1,echo = FALSE}
+all_boxplots_nokruskal <- plot_grid(      
                           boxplot_divq0_nokruskal,
-                          boxplot_divq1_nokruskal, 
-          labels=c("A","B","C","D"),
+                          boxplot_divq1_nokruskal,
+                          boxplot_clone_size_nokruskal,
+          labels=c("A","B","C"),
           ncol=1,
           align = T
           )
@@ -876,9 +893,25 @@ all_boxplots_nokruskal
 
 ```{r, fig.width=6, echo=F, include=F}
 ggsave(plot = all_boxplots_nokruskal, filename = paste0(diversity_dir,"/Figure_allboxplots_nokruskal.png"), device="png",
-        width = 20, height = 25, units="cm")
+        width = 20, height = 16, units="cm")
 ggsave(plot = all_boxplots_nokruskal, filename = paste0(diversity_dir,"/Figure_allboxplots_nokruskal.pdf"), device="pdf",
-        width = 20, height = 25, units="cm")
+        width = 20, height = 16, units="cm")
+```
+
+```{r, fig.width=6, fig.asp=0.4,echo = FALSE}
+all_boxplots_nokruskal_suppl <- plot_grid(boxplot_gini_nokruskal,
+                          labels=c("A"),
+          ncol=1,
+          align = T
+          )
+all_boxplots_nokruskal_suppl
+```
+
+```{r, fig.width=6, echo=F, include=F}
+ggsave(plot = all_boxplots_nokruskal_suppl, filename = paste0(diversity_dir,"/Figure_allboxplots_nokruskal_suppl.png"), device="png",
+        width = 20, height = 7, units="cm")
+ggsave(plot = all_boxplots_nokruskal, filename = paste0(diversity_dir,"/Figure_allboxplots_nokruskal_suppl.pdf"), device="pdf",
+        width = 20, height = 7, units="cm")
 ```
 
 # V gene usage
