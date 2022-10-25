@@ -1049,14 +1049,17 @@ family_pop <- family_pop[!(family_pop$sample_pop %in% c("Cladribin_12months_CLAD
 
 my_comparisons <- list( c("baseline", "6months"), c("6months", "12months"), c("baseline", "12months") )
 
+# Remove IGHV7 as no primers were included for this gene:
+family_pop <- family_pop %>% filter(gene != "IGHV7")
+
 vgene_boxplot_pop <- ggpubr::ggboxplot(family_pop, x="time_point", y="clone_freq",
                         add = "jitter", legend="none", color = "time_point", line.color = "gray", line.size = 0.4,
                         facet.by = c("population","gene"), short.panel.labs = T) +
                         scale_x_discrete(breaks=c("baseline","6months","12months"),
                       labels=c("B", "6M", "12M")) +
                       xlab("") + ylab("Frequency") +
-                      stat_compare_means(comparisons = my_comparisons, paired=T, method = "wilcox", label="p.signif") +
-                      stat_compare_means(paired=T, label="p.format", label.y = 1.1)
+                      stat_compare_means(comparisons = my_comparisons, paired=T, method = "wilcox", label="p.signif", hide.ns = T) +
+                      stat_compare_means(paired=T, label="p.format", label.y = 1.1, hide.ns = T)
 vgene_boxplot_pop
 
 ```
@@ -1162,6 +1165,7 @@ write.table(freqs, file = paste0(isotype_dir,"/Isotype_frequencies_data.tsv"), s
 ## Isotype usage per cell population
 
 ```{r isotype_pop, echo=F, fig.width=15, fig.asp=0.6, fig.align='center'}
+df_all$isotype <- df_all$c_primer
 res_pop <- df_all %>% group_by(isotype, sample_pop, source, treatment, extract_time, population) %>% dplyr::summarise(Seqs_isotype=n())
 res_pop <- with(res_pop, res_pop[order(source),])
 res_pop_sample <- df_all %>% group_by(sample_pop) %>% dplyr::summarise(Seqs_total=n())
@@ -1209,8 +1213,8 @@ isotype_boxplot_pop <- ggpubr::ggboxplot(freqs, x="extract_time", y="Freq",
                         scale_x_discrete(breaks=c("baseline","6months","12months"),
                       labels=c("B", "6M", "12M")) +
                       xlab("") + ylab("Frequency") +
-                      stat_compare_means(comparisons = my_comparisons, paired=T, method = "wilcox", label="p.signif") +
-                      stat_compare_means(paired=T, label="p.format", label.y = 1.4)
+                      stat_compare_means(comparisons = my_comparisons, paired=T, method = "wilcox", label="p.signif", hide.ns=T) +
+                      stat_compare_means(paired=T, label="p.format", label.y = 1.4, hide.ns = T)
 isotype_boxplot_pop
 ```
 
