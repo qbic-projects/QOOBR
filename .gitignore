@@ -1,9 +1,4 @@
-repertoire_comparison
-repertoire_comparison_tp
-repertoire_comparison_bootstrapped
-repertoire_comparison_bootstrapped_exclusive_intersects
-*.zip
 .Rhistory
 .RDataTmp
 .DS_Store
-figures-presentation
+.ipynb_checkpoints

@@ -1,6 +1,0 @@
-2022-02-27 11:40:57,495 - attachi - DEBUG - Want to prepare Attachment CLAD_repertoire_analysis_per_patient.zip (Preliminary results and plots CLAD patients defining clones per patient) of type Results for project QMKMK as user qeaga01
-2022-02-27 11:40:57,519 - attachi - DEBUG - Folder /Users/gisela/Projects/Qbicservice/Kowarik/QMKMK/CLAD_mibi/all_clad_results/improved_reports/QMKMK000AG_20220227114057495630 created
-2022-02-27 11:40:57,519 - attachi - DEBUG - Wrote metadata file to folder /Users/gisela/Projects/Qbicservice/Kowarik/QMKMK/CLAD_mibi/all_clad_results/improved_reports/QMKMK000AG_20220227114057495630
-2022-02-27 11:40:57,519 - attachi - INFO - copying CLAD_repertoire_analysis_per_patient.zip to attachment folder...
-2022-02-27 11:40:57,593 - attachi - DEBUG - Copying of data file done. checking existence...
-2022-02-27 11:40:57,594 - attachi - DEBUG - True
