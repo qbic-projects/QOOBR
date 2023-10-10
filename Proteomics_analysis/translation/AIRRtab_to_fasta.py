@@ -4,6 +4,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 import argparse
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", "--input", type=str, help="Path to input AIRR format tab-separated (TSV) table.")
 parser.add_argument("-o", "--outname", type=str, default="sequences.fasta", help="Name of output fasta file.")
@@ -11,7 +12,7 @@ parser.add_argument("-o", "--outname", type=str, default="sequences.fasta", help
 args = parser.parse_args()
 
 tab = pd.read_csv(args.input, sep="\t")
-tab["fasta_desc"] = tab["v_call_genotyped"] + " " + tab["d_call"] + " " + tab["j_call"]
+tab["fasta_desc"] = str(tab["v_call"]) + " " + str(tab["d_call"]) + " " + str(tab["j_call"])
 
 out_file = args.outname
 ids = tab["sequence_id"]
