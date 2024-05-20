@@ -11,18 +11,18 @@ parser.add_argument("-o", "--outname", type=str, default="sequences_aa.fasta", h
 args = parser.parse_args()
 
 tab = pd.read_csv(args.input, sep="\t")
-tab["fasta_desc"] = tab["v_call"] + " " + tab["d_call"] + " " + tab["j_call"]
 
 out_file = args.outname
 ids = tab["sequence_id"]
-descriptions = tab["fasta_desc"]
 seqs_nt = tab["sequence"]
 seqs_aligned_aa = tab["sequence_alignment_aa"]
 
 with open(args.outname, 'wt') as out_handle:
-    for (ii, desc, seq_nt, seq_al_aa) in zip(ids, descriptions, seqs_nt, seqs_aligned_aa):
+    for (ii, seq_nt, seq_al_aa) in zip(ids, seqs_nt, seqs_aligned_aa):
 
         seq_orig_nt = Seq(seq_nt)
+
+        # Unclear why we trust the manual translations more than the ones from IgBLAST
 
         # Translating sequence
         seq_translated = seq_orig_nt.translate()
@@ -41,6 +41,6 @@ with open(args.outname, 'wt') as out_handle:
             seq_translated,
             id = ii,
             name = ii,
-            description = str(desc),
+            description = '',
         )
         SeqIO.write(record, out_handle, "fasta")

@@ -11,19 +11,21 @@ parser.add_argument("-o", "--outname", type=str, default="sequences.fasta", help
 
 args = parser.parse_args()
 
-tab = pd.read_csv(args.input, sep="\t")
-tab["fasta_desc"] = str(tab["v_call"]) + " " + str(tab["d_call"]) + " " + str(tab["j_call"])
+tab = pd.read_csv(args.input, sep="\t", low_memory=False)
+tab['unique_sequence_id'] = tab.apply(lambda x: f'{x["sequence_id"]}_{x["sample_id"]}', axis=1)
+
+# check that unique_sequence_id is really unique
+assert len(tab) == len(tab['unique_sequence_id'].unique())
 
 out_file = args.outname
-ids = tab["sequence_id"]
-descriptions = tab["fasta_desc"]
+ids = tab["unique_sequence_id"]
 seqs = tab["sequence"]
 with open(args.outname, 'wt') as out_handle:
-    for (ii, desc, seq) in zip(ids, descriptions, seqs):
+    for (ii, seq) in zip(ids, seqs):
         record = SeqRecord(
             Seq(seq),
             id=ii,
             name=ii,
-            description=str(desc),
+            description='',
         )
         SeqIO.write(record, out_handle, "fasta")
